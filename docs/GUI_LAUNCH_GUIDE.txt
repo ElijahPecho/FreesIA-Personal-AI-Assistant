@@ -1,0 +1,82 @@
+# FreesIA GUI Launch Instructions
+
+## How to Launch FreesIA GUI
+
+You now have multiple ways to launch the FreesIA GUI application:
+
+### **Option 1: VBScript Launcher (Recommended) ⭐**
+Simply **double-click**:
+```
+Launch FreesIA.vbs
+```
+✅ Opens GUI window only (no terminal)
+✅ Most reliable method
+✅ Works on all Windows systems
+
+### **Option 2: Batch File Launcher**
+Double-click:
+```
+Launch FreesIA.bat
+```
+✅ Also launches GUI without terminal
+✅ Uses pythonw.exe for clean launch
+
+### **Option 3: PowerShell Launcher**
+Run in PowerShell:
+```powershell
+.\Launch FreesIA.ps1
+```
+✅ Modern launcher script
+✅ Fully customizable
+
+### **Option 4: Command Line (Console Version)**
+For the terminal version with full output:
+```powershell
+python "Project FreesIA.py"
+```
+
+---
+
+## Create a Desktop Shortcut (Optional)
+
+### For easy access, create a Windows shortcut:
+
+1. **Right-click** on `Launch FreesIA.vbs`
+2. Select **"Create shortcut"** or **"Send to → Desktop"**
+3. Now you can **double-click on Desktop** to launch FreesIA GUI
+
+### Or manually create a shortcut:
+1. Right-click on Desktop → **New → Shortcut**
+2. Location: `C:\Users\elija\Desktop\Personal Projects\FreesIA\Launch FreesIA.vbs`
+3. Name: **FreesIA**
+4. Click **Finish**
+5. (Optional) Right-click shortcut → Properties → Change Icon → Select `FreesIA Icon.ico`
+
+---
+
+## Troubleshooting
+
+**Q: The GUI doesn't open when I double-click the launcher**
+- A: Try running from Command Prompt instead:
+  ```powershell
+  cd "c:\Users\elija\Desktop\Personal Projects\FreesIA"
+  python FreesIA_GUI.py
+  ```
+
+**Q: I see a terminal window appearing**
+- A: Use the VBScript launcher (`Launch FreesIA.vbs`) - it prevents console windows
+
+**Q: The GUI opens but is slow to load**
+- A: This is normal on first launch. Ollama and application scanning take time.
+
+---
+
+## Features
+
+✨ Modern PyQt6 GUI interface
+🎤 Voice recognition
+🔊 Text-to-speech
+🤖 AI conversation (Ollama)
+📁 File management
+⚙️ System control
+💬 Chat history

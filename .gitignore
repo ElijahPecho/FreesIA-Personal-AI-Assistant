@@ -1,0 +1,21 @@
+# Personal data - never commit
+ChatHistory/
+Personality*.txt
+!Personality.example.txt
+*.log
+freesia_error.log
+crash.log
+
+# Python / environment
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+# Local leftovers and machine-specific files
+_old/
+*.lnk
+*.backup-*.py
+*.restyled.py
+Thumbs.db
+.DS_Store

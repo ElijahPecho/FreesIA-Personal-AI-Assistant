@@ -1,0 +1,24 @@
+# FreesIA - Windows only (uses the Windows registry, win32 APIs and the Windows voice)
+# Python 3.10+ recommended. Install with:  pip install -r requirements.txt
+
+PyQt6>=6.6
+ollama>=0.3
+psutil
+Pillow
+pyttsx3
+comtypes
+pywin32
+pynput
+send2trash
+python-docx
+pypdf
+requests
+
+# Voice input (microphone)
+SpeechRecognition
+PyAudio
+vosk
+
+# Optional
+# piper-tts      # offline "A2 voice" (installable from inside Settings -> Persona -> Voice)
+# winsdk         # location awareness
