@@ -58,4 +58,50 @@ A major update over Pre-Alpha. The codebase roughly doubled in size, with a rebu
 
 ## [Pre-Alpha]
 
-Initial public preview.
+Initial public preview, showing the core direction of the project. Many features were experimental or incomplete.
+
+### Chat
+- Local AI chat through Ollama, with a persona loaded from `Personality.txt`.
+- Replies stream in as they are generated.
+- Messages are routed by complexity: a larger model (`llama3.1:8b`) for complex questions and a faster one (`mistral`) for simple and medium ones.
+- Awareness of the active window, and a clearable AI conversation history.
+- Switch the AI model and reload the persona without restarting.
+- Chat history sidebar with rename and delete.
+
+### Voice
+- Speech recognition with offline Vosk and an online fallback.
+- Wake words and continuous background listening.
+- Spoken replies with a text-to-speech toggle.
+- Fuzzy matching that corrects misheard commands.
+
+### Desktop control
+- Natural-language commands for apps, files and the system.
+- Open and close applications. Installed apps are found through the registry and Start Menu, and cached.
+- Open websites, with a web search fallback.
+- Search for files, open them, list recent files, create folders and delete files.
+- Volume and brightness control, Wi-Fi and Bluetooth toggles.
+- Media controls: play/pause, next, previous and stop.
+- Battery status and system information.
+- Screenshots.
+- Lock, sleep, shutdown and restart, with confirmation prompts.
+- Open the Control Panel.
+- Time, date, location and weather.
+- Custom shortcuts: add, list, run and remove your own commands.
+- Built-in help with the full command list and categories.
+
+### Interface
+- Chat window with message bubbles and a loading indicator.
+- Splash screen shown while the app loads.
+- Collapsible sidebar and a list of detected applications.
+- Settings window with a language selector.
+
+### Privacy and security
+- Permission toggles for file access, system settings and power control.
+- Optional PIN protection, stored as a hash.
+- Command audit log, with export and clear.
+- Data management: export all data or delete it.
+
+### Other
+- Relationship system that tracks interactions with the assistant over time.
+- Missing Python packages are installed automatically on first run.
+- Known limitation: many features were experimental, untested or incomplete.
