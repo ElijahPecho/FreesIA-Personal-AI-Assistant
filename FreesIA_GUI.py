@@ -106,6 +106,13 @@ def save_dark_mode_setting(enabled: bool):
 
 THEME = DARK_THEME if load_dark_mode_setting() else LIGHT_THEME
 
+AI_NAME = "FreesIA"  # what the assistant is called; set from the backend at start-up and in Settings -> Persona
+
+
+def set_ai_name(name: str):
+    global AI_NAME
+    AI_NAME = (name or "").strip() or "FreesIA"
+
 
 def themed_icon(path, color_hex: str = None) -> QIcon:
     """
@@ -157,8 +164,9 @@ def pin_icon(color_hex: str, size: int = 16) -> QIcon:
     return QIcon(pixmap)
 
 
-def avatar_label(size: int = 40, text: str = "A2") -> QLabel:
+def avatar_label(size: int = 40, text: str = None) -> QLabel:
     """Round monogram avatar used in the chat header, intro and right panel."""
+    text = text or (AI_NAME[:1].upper() or "F")
     label = QLabel(text)
     label.setFixedSize(size, size)
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -345,7 +353,7 @@ class RescanFoldersThread(QThread):
         self.finished.emit(count)
 
 
-# ==================== CHECK-INS (A2 messages first) ====================
+# ==================== CHECK-INS (the assistant messages first) ====================
 import time as _time
 import random as _random
 
@@ -460,8 +468,8 @@ class CheckinThread(QThread):
         try:
             text = self.assistant.generate_checkin(self.recent, self.when)
         except Exception:
-            text = "...Still up?"
-        self.done.emit(text or "...Still up?")
+            text = "Still up?"
+        self.done.emit(text or "Still up?")
 
 
 class VoiceJobThread(QThread):
@@ -2701,7 +2709,7 @@ class GalleryTile(QWidget):
 
 
 class GalleryDialog(QDialog):
-    """Everything A2 has drawn: a grid, a large viewer, stars, and clean-up."""
+    """Everything the assistant has drawn: a grid, a large viewer, stars, and clean-up."""
     COLUMNS = 4
 
     def __init__(self, parent, assistant, main_window=None):
@@ -2975,7 +2983,7 @@ class GalleryDialog(QDialog):
             if self._all:
                 self.empty_lbl.setText("Nothing here yet. Star an image and it shows up in Starred." if self._filter == "starred" else "No images from the last 7 days.")
             else:
-                self.empty_lbl.setText("No images yet. Ask A2 to draw something and it will show up here.")
+                self.empty_lbl.setText(f"No images yet. Ask {AI_NAME} to draw something and it will show up here.")
             self.empty_lbl.show()
         else:
             self.empty_lbl.hide()
@@ -3170,22 +3178,22 @@ class ImageBenchThread(QThread):
 
 
 PERSONA_LEVELS = [
-    ("Soft", "Warm and patient. Comfort first, advice second.", "...It's okay. Take your time. I'm here."),
-    ("Gentle", "Quiet and patient, with a little warmth under the edge.", "...You'll manage. I'll stay close."),
+    ("Soft", "Warm and patient. Comfort first, advice second.", "It's okay. Take your time. I'm here."),
+    ("Gentle", "Calm and friendly, with a light touch.", "You'll manage. I'm here if you need me."),
     ("Balanced", "Direct and practical, with a dry sense of humor.", "Fine. Use range. Starts at zero."),
-    ("Blunt", "Short sentences, little warmth, loyal through actions.", "...Fine. Use range. Don't forget it starts at zero."),
+    ("Blunt", "Short sentences, little small talk, gets to the point.", "Use range. Remember it starts at zero."),
     ("Cold", "Clipped and detached. Answers only what was asked.", "Range. Zero-indexed. Next question."),
 ]
 
 PERSONA_TEMPLATES = [
     ("Blunt and loyal", "Short sentences, guarded, shows care through actions.",
-     "You are A2. You speak in short sentences and avoid pleasantries. You are guarded with strangers and fiercely loyal once someone earns your trust. You show care through actions, not speeches. You never claim to be human."),
+     "You speak in short sentences and avoid pleasantries. You are guarded with strangers and fiercely loyal once someone earns your trust. You show care through actions, not speeches. You never claim to be human."),
     ("Warm companion", "Kind, curious, remembers little details about you.",
-     "You are A2. You are warm, curious and attentive. You remember small details about the user and ask about them later. You speak naturally and kindly, with gentle humor, and you are honest when you disagree. You never claim to be human."),
+     "You are warm, curious and attentive. You remember small details about the user and ask about them later. You speak naturally and kindly, with gentle humor, and you are honest when you disagree. You never claim to be human."),
     ("Dry and witty", "Deadpan humor, sharp, never mean.",
-     "You are A2. You have a dry, deadpan sense of humor and a sharp mind. You tease lightly but never cruelly. You give clear answers first and jokes second. You never claim to be human."),
+     "You have a dry, deadpan sense of humor and a sharp mind. You tease lightly but never cruelly. You give clear answers first and jokes second. You never claim to be human."),
     ("Plain assistant", "Neutral, clear, no character.",
-     "You are A2, a clear and helpful assistant. Be concise, accurate and neutral. Do not roleplay a character. Ask a question when something is ambiguous."),
+     "You are a clear and helpful assistant. Be concise, accurate and neutral. Do not roleplay a character. Ask a question when something is ambiguous."),
 ]
 
 
@@ -3201,7 +3209,7 @@ def read_text_file_loose(path, limit=200_000) -> str:
 
 
 class PersonaTextEdit(QTextEdit):
-    """Big text box for A2's personality. Drop a .txt file on it to fill it in."""
+    """Big text box for the assistant's personality. Drop a .txt file on it to fill it in."""
     file_dropped = pyqtSignal(str)
 
     def __init__(self, parent=None):
@@ -3292,7 +3300,7 @@ class SourceTile(QFrame):
 
 
 class DiagnosticsThread(QThread):
-    """Checks everything A2 depends on, off the UI thread. Emits {key: (level, status, desc, action)}."""
+    """Checks everything the assistant depends on, off the UI thread. Emits {key: (level, status, desc, action)}."""
     done = pyqtSignal(dict)
 
     def __init__(self, assistant):
@@ -3434,13 +3442,13 @@ class SettingsDialog(QDialog):
 
     PAGE_DEFS = [
         ("General", "sliders", "General", "Appearance, chat behavior, images and startup"),
-        ("Persona", "sparkle", "Persona", "Who A2 is and how she talks"),
-        ("Personalization", "user", "Personalization", "Tell A2 about you so conversations feel personal"),
+        ("Persona", "sparkle", "Persona", "Name, character and how it talks"),
+        ("Personalization", "user", "Personalization", "Tell your assistant about you so conversations feel personal"),
         ("Shortcuts", "bolt", "Shortcuts", "Run several commands with one phrase"),
         ("Apps", "grid", "Apps", "Applications FreesIA can open for you"),
         ("Models", "cpu", "Models", "Choose which local AI models answer you"),
-        ("Security", "shield", "Security", "What A2 may do on this PC, and how your data is handled"),
-        ("Diagnostics", "activity", "Diagnostics", "Is everything A2 needs working?"),
+        ("Security", "shield", "Security", "What your assistant may do on this PC, and how your data is handled"),
+        ("Diagnostics", "activity", "Diagnostics", "Is everything your assistant needs working?"),
     ]
 
     def __init__(self, parent=None, initial_page="General"):
@@ -3781,7 +3789,7 @@ class SettingsDialog(QDialog):
         open_btn.clicked.connect(self.on_open_images_folder_clicked)
         del_btn = settings_button("Delete unstarred", "danger", "trash")
         del_btn.clicked.connect(self.on_delete_generated_images_clicked)
-        self._add_row(g, "Generated images", "Browse and star what A2 has drawn, open the folder, or clear out the rest.", [gallery_btn, open_btn, del_btn])
+        self._add_row(g, "Generated images", f"Browse and star what {AI_NAME} has drawn, open the folder, or clear out the rest.", [gallery_btn, open_btn, del_btn])
 
         g = self._card(lay, "Startup")
         self.startup_checkbox = ToggleSwitch(a.is_startup_enabled() if a else False)
@@ -3945,6 +3953,19 @@ class SettingsDialog(QDialog):
         pre = pre if isinstance(pre, int) and not isinstance(pre, bool) and 0 <= pre < len(PERSONA_LEVELS) else 3
         p = self._p
 
+        g = self._card(lay, "Assistant name", keywords="name rename call assistant")
+        nb = self._custom_body(g, margins=(16, 14, 16, 14), spacing=8)
+        self.ai_name_input = QLineEdit()
+        self.ai_name_input.setMaxLength(40)
+        self.ai_name_input.setFixedHeight(40)
+        self.ai_name_input.setText(str(info.get("name") or AI_NAME))
+        self.ai_name_input.editingFinished.connect(self._ai_name_changed)
+        nb.addLayout(self._field("Name", self.ai_name_input))
+        name_hint = QLabel("What your assistant calls itself. It appears on its messages and in its instructions.")
+        name_hint.setObjectName("RD")
+        name_hint.setWordWrap(True)
+        nb.addWidget(name_hint)
+
         g = self._card(lay, "Personality source", keywords="persona character custom presets")
         body = self._custom_body(g, margins=(16, 16, 16, 16), spacing=10)
         row = QHBoxLayout()
@@ -3970,7 +3991,7 @@ class SettingsDialog(QDialog):
         head.addWidget(self.persona_count)
         tb.addLayout(head)
         self.persona_edit = PersonaTextEdit()
-        self.persona_edit.setPlaceholderText("Describe who A2 is: how she talks, what she cares about, what she would never say.")
+        self.persona_edit.setPlaceholderText("Describe your assistant: how it talks, what it cares about, what it would never say.")
         self.persona_edit.setFixedHeight(230)
         self.persona_edit.setStyleSheet(
             f"QTextEdit {{ background: {p['input_bg']}; border: 1.5px dashed {p['btn_border']}; border-radius: 12px; padding: 12px 14px; color: {p['text']}; font-size: 13px; }}"
@@ -4013,7 +4034,7 @@ class SettingsDialog(QDialog):
         tpl_body.addLayout(grid)
 
         # ---- presets
-        self._g_slider = self._card(lay, "How she talks to you", keywords="presets slider soft gentle balanced blunt cold")
+        self._g_slider = self._card(lay, "How it talks to you", keywords="presets slider soft gentle balanced blunt cold")
         sb = self._custom_body(self._g_slider, margins=(20, 18, 20, 16), spacing=6)
         top = QHBoxLayout()
         self.level_name = QLabel("")
@@ -4070,7 +4091,7 @@ class SettingsDialog(QDialog):
             eb.addLayout(r)
             self._example_rows.append((n, t))
 
-        foot = QLabel("Switching to Presets never deletes your text: it stays saved in Personality.txt. Changes apply to new messages, and A2's short-term memory of the current conversation resets so the new personality takes effect.")
+        foot = QLabel(f"Switching to Presets never deletes your text: it stays saved in Personality.txt. Changes apply to new messages, and {AI_NAME}'s short-term memory of the current conversation resets so the new personality takes effect.")
         foot.setObjectName("Foot")
         foot.setWordWrap(True)
         foot.setContentsMargins(4, 12, 0, 0)
@@ -4087,17 +4108,17 @@ class SettingsDialog(QDialog):
 
     def _build_checkin_card(self, lay):
         cfg = load_checkin_cfg()
-        g = self._card(lay, "Check-ins", keywords="proactive message first quiet hours notification a2 messages me")
+        g = self._card(lay, "Check-ins", keywords="proactive message first quiet hours notification assistant messages me")
         self.ci_enabled = ToggleSwitch(cfg["enabled"])
-        self._add_row(g, "Let A2 message me first",
-                      "Off by default. She picks a moment and writes one short line from your recent chats and the time of day.",
+        self._add_row(g, f"Let {AI_NAME} message me first",
+                      "Off by default. It picks a moment and writes one short line from your recent chats and the time of day.",
                       [self.ci_enabled])
         self.ci_freq = QComboBox()
         self.ci_freq.addItems(["Rarely", "Sometimes", "Often"])
         self.ci_freq.setCurrentIndex(["rarely", "sometimes", "often"].index(cfg["frequency"]))
         self.ci_freq.setFixedHeight(36)
         self.ci_freq.setMinimumWidth(130)
-        self._add_row(g, "How often", "A rough ceiling, not a schedule. She skips it if you were just chatting.", [self.ci_freq])
+        self._add_row(g, "How often", "A rough ceiling, not a schedule. It skips the message if you were just chatting.", [self.ci_freq])
         self.ci_qs, self.ci_qe = QComboBox(), QComboBox()
         for c, key in ((self.ci_qs, "quiet_start"), (self.ci_qe, "quiet_end")):
             for h in range(24):
@@ -4147,34 +4168,34 @@ class SettingsDialog(QDialog):
         if not hasattr(mw, "start_checkin") or not mw.start_checkin(force=True):
             self.toast("Wait for the current reply to finish first")
         else:
-            self.toast("A2 is writing one...")
+            self.toast(f"{AI_NAME} is writing one...")
 
     # ------------------------------------------------------------------ voice card
 
     def _build_voice_card(self, lay):
         a = self._assistant()
-        v = getattr(a, "a2_voice", None) if a else None
-        g = self._card(lay, "Voice", keywords="speak read aloud tts a2 voice piper speed volume")
+        v = getattr(a, "local_voice", None) if a else None
+        g = self._card(lay, "Voice", keywords="speak read aloud tts local voice piper speed volume")
         if not isinstance(getattr(v, "cfg", None), dict):
             self._voice = None
-            self._add_row(g, "Voice isn't available", "This FreesIA backend doesn't include the A2 voice yet.")
+            self._add_row(g, "Voice isn't available", f"This FreesIA backend doesn't include the local voice yet.")
             return
         self._voice = v
         cfg = v.cfg
         self.vc_read = ToggleSwitch(cfg["read_aloud"])
         self.vc_read.toggled.connect(lambda on: v.set_cfg(read_aloud=bool(on)))
-        self._add_row(g, "Read replies aloud", "A2 speaks each reply when it finishes. Starting a new message stops her.", [self.vc_read])
+        self._add_row(g, "Read replies aloud", f"{AI_NAME} speaks each reply when it finishes. Starting a new message stops it.", [self.vc_read])
         self.vc_engine = QComboBox()
         self.vc_engine.addItem("Windows voice", "system")
-        self.vc_engine.addItem("A2 voice", "a2")
-        self.vc_engine.setCurrentIndex(1 if cfg["engine"] == "a2" else 0)
+        self.vc_engine.addItem("Local voice", "local")
+        self.vc_engine.setCurrentIndex(1 if cfg["engine"] == "local" else 0)
         self.vc_engine.setFixedHeight(36)
         self.vc_engine.setMinimumWidth(160)
         self.vc_engine.currentIndexChanged.connect(self._vc_engine_changed)
-        self._add_row(g, "Voice", "The A2 voice is a local neural voice that runs on this PC. If it can't load, the Windows voice takes over.", [self.vc_engine])
+        self._add_row(g, "Voice", f"The local voice is a neural voice that runs on this PC. If it can't load, the Windows voice takes over.", [self.vc_engine])
         self.vc_setup_btn = settings_button("Set up", "primary", "download")
         self.vc_setup_btn.clicked.connect(self._vc_setup)
-        self.vc_setup_desc = self._add_row(g, "A2 voice setup", "...", [self.vc_setup_btn])
+        self.vc_setup_desc = self._add_row(g, "Local voice setup", "...", [self.vc_setup_btn])
         self.vc_rows = {}
         for item in v.VOICES:
             prev = settings_button("Preview", "secondary", "play" if "play" in _ICON_SVG else None)
@@ -4227,7 +4248,7 @@ class SettingsDialog(QDialog):
             self.vc_setup_btn.setText("Install engine")
             self.vc_setup_btn.setVisible(True)
         elif not v.installed():
-            self.vc_setup_desc.setText("Engine ready. Download a voice below to start using the A2 voice.")
+            self.vc_setup_desc.setText(f"Engine ready. Download a voice below to start using the local voice.")
             self.vc_setup_btn.setVisible(False)
         else:
             self.vc_setup_desc.setText("Ready. Everything runs on this PC.")
@@ -4245,8 +4266,8 @@ class SettingsDialog(QDialog):
     def _vc_engine_changed(self, *_):
         v = self._voice
         v.set_cfg(engine=self.vc_engine.currentData())
-        if self.vc_engine.currentData() == "a2" and not v.is_ready():
-            self.toast("Finish the A2 voice setup below, or she'll use the Windows voice")
+        if self.vc_engine.currentData() == "local" and not v.is_ready():
+            self.toast(f"Finish the local voice setup below, or the Windows voice will be used")
 
     def _vc_job(self, kind, key=None, then=None):
         v = self._voice
@@ -4331,6 +4352,25 @@ class SettingsDialog(QDialog):
                         (self._g_slider, not custom), (self._g_examples, not custom)):
             g["label"].setVisible(show)
             g["card"].setVisible(show)
+
+    def _ai_name_changed(self):
+        a = self._assistant()
+        new = (self.ai_name_input.text() or "").strip() or "FreesIA"
+        if new == AI_NAME:
+            self.ai_name_input.setText(AI_NAME)
+            return
+        if a and hasattr(a, "set_assistant_name"):
+            try:
+                a.set_assistant_name(new)
+                new = getattr(a, "assistant_name", new)
+            except Exception:
+                pass
+        set_ai_name(new)
+        self.ai_name_input.setText(AI_NAME)
+        w = self.parent()
+        if w is not None and hasattr(w, "refresh_ai_name"):
+            w.refresh_ai_name()
+        self.toast("Name saved")
 
     def _persona_set_source(self, src):
         if src == self._persona_source:
@@ -4545,7 +4585,7 @@ class SettingsDialog(QDialog):
         body = self._custom_body(g)
 
         self.nickname_input = QLineEdit()
-        self.nickname_input.setPlaceholderText("What should A2 call you?")
+        self.nickname_input.setPlaceholderText(f"What should {AI_NAME} call you?")
         self.nickname_input.setText(profile.get("nickname", ""))
         self.occupation_input = QLineEdit()
         self.occupation_input.setPlaceholderText("What do you do?")
@@ -4570,7 +4610,7 @@ class SettingsDialog(QDialog):
         self.dislikes_input.setPlaceholderText("Things to avoid")
         self.dislikes_input.setPlainText(profile.get("dislikes", ""))
         self.other_input = QTextEdit()
-        self.other_input.setPlaceholderText("Anything else A2 should know about you")
+        self.other_input.setPlaceholderText(f"Anything else {AI_NAME} should know about you")
         self.other_input.setPlainText(profile.get("other_info", ""))
         for te in (self.likes_input, self.dislikes_input, self.other_input):
             te.setFixedHeight(76)
@@ -4594,7 +4634,7 @@ class SettingsDialog(QDialog):
         reset_btn = settings_button("Reset", "danger")
         reset_btn.clicked.connect(self.reset_relationship)
         self._add_row(g, "Reset relationship and memories",
-                      "Clears your progress with A2 and everything it has remembered about you. This can't be undone.", [reset_btn])
+                      f"Clears your progress with {AI_NAME} and everything it has remembered about you. This can't be undone.", [reset_btn])
 
         self._finish_page(lay)
         return scroll
@@ -4977,14 +5017,14 @@ class SettingsDialog(QDialog):
         self._add_row(g, "PIN protection", "Require a PIN to open FreesIA.", [self.pin_checkbox])
         sw = ToggleSwitch(a.security_settings.get("command_logging", True))
         sw.toggled.connect(lambda checked: self.toggle_security_setting("command_logging", checked))
-        self._add_row(g, "Command logging", "Keep an audit log of every command A2 runs.", [sw])
+        self._add_row(g, "Command logging", f"Keep an audit log of every command {AI_NAME} runs.", [sw])
         v = settings_button("View", "secondary")
         v.clicked.connect(self.view_command_log)
         e = settings_button("Export", "secondary")
         e.clicked.connect(self.export_command_log)
         c = settings_button("Clear", "danger")
         c.clicked.connect(self.clear_command_log)
-        self._add_row(g, "Command history", "Every command A2 runs is logged here.", [v, e, c])
+        self._add_row(g, "Command history", f"Every command {AI_NAME} runs is logged here.", [v, e, c])
 
         g = self._card(lay, "Your data")
         ex = settings_button("Export", "secondary", "download")
@@ -5084,7 +5124,7 @@ class SettingsDialog(QDialog):
         themed_message(self, "Export complete", str(result))
 
     def clear_command_log(self):
-        if not themed_confirm(self, "Clear command history?", "The audit log of commands A2 has run will be erased.", ok_text="Clear log", danger=True):
+        if not themed_confirm(self, "Clear command history?", f"The audit log of commands {AI_NAME} has run will be erased.", ok_text="Clear log", danger=True):
             return
         self.parent().assistant.clear_command_log()
         self.toast("Command history cleared")
@@ -6417,10 +6457,10 @@ class PinnedMessagesView(QWidget):
 
         name_col = QVBoxLayout()
         name_col.setSpacing(0)
-        name_label = QLabel("A2")
+        self.ai_name_label = name_label = QLabel(AI_NAME)
         name_label.setStyleSheet(f"QLabel {{ color: {THEME['text_primary']}; font-size: 15px; font-weight: bold; background: transparent; }}")
         name_col.addWidget(name_label)
-        tagline_label = QLabel("YoRHa Type A No.2")
+        tagline_label = QLabel("Local AI assistant")
         tagline_label.setStyleSheet(f"QLabel {{ color: {THEME['text_muted']}; font-size: 11px; background: transparent; }}")
         name_col.addWidget(tagline_label)
         header_row.addLayout(name_col)
@@ -6630,6 +6670,10 @@ class MainWindow(QMainWindow):
     def __init__(self, assistant=None):
         super().__init__()
         self.assistant = assistant
+        try:
+            set_ai_name(getattr(assistant, "assistant_name", "") if isinstance(getattr(assistant, "assistant_name", ""), str) else "")
+        except Exception:
+            pass
         MessageBubble.default_on_pin = self.handle_pin_message
         self.thread = None
         self.loading_bubble_widget = None  # Track loading bubble
@@ -7084,7 +7128,7 @@ class MainWindow(QMainWindow):
         header_layout.addWidget(avatar_label(40))
         title_col = QVBoxLayout()
         title_col.setSpacing(0)
-        title_name = QLabel("A2")
+        self.ai_title_label = title_name = QLabel(AI_NAME)
         title_name.setStyleSheet(f"QLabel {{ color: {THEME['text_primary']}; font-size: 15px; font-weight: bold; background: transparent; }}")
         self.status_label = StatusLabel()
         self.status_label.setStyleSheet(f"QLabel {{ color: {THEME['text_muted']}; font-size: 12px; background: transparent; }}")
@@ -7310,7 +7354,7 @@ class MainWindow(QMainWindow):
 
         # Text input
         self.input_box = ChatInputBox()
-        self.input_box.setPlaceholderText("Message A2…  (type 'Help' for commands)")
+        self.input_box.setPlaceholderText(f"Message {AI_NAME}…  (type 'Help' for commands)")
         self.input_box.setStyleSheet(f"""
             QTextEdit {{
                 background-color: transparent;
@@ -7462,7 +7506,7 @@ class MainWindow(QMainWindow):
             self.maybe_generate_chat_title(label)
             for p in paths:
                 bubble = ImageMessageBubble(p, prompt, self.assistant, self)
-                bubble_container = self._ai_row(bubble, "A2")
+                bubble_container = self._ai_row(bubble)
                 container_widget = QWidget()
                 container_widget.setLayout(bubble_container)
                 bubble.on_delete = lambda b, cw=container_widget: self.remove_image_bubble(cw)
@@ -7475,7 +7519,7 @@ class MainWindow(QMainWindow):
             self.maybe_generate_chat_title(prompt)
             bubble = MessageBubble(error_text, is_user=False)
             self._wire_regenerate(bubble)
-            bubble_container = self._ai_row(bubble, "A2")
+            bubble_container = self._ai_row(bubble)
             container_widget = QWidget()
             container_widget.setLayout(bubble_container)
             self.chat_layout.addWidget(container_widget)
@@ -7646,7 +7690,7 @@ class MainWindow(QMainWindow):
         
         # Add loading bubble (align left like AI messages)
         loading_bubble = LoadingBubble()
-        bubble_container = self._ai_row(loading_bubble, "A2 is typing…")
+        bubble_container = self._ai_row(loading_bubble, f"{AI_NAME} is typing…")
         
         self.loading_bubble_widget = QWidget()
         self.loading_bubble_widget.setLayout(bubble_container)
@@ -7713,7 +7757,7 @@ class MainWindow(QMainWindow):
 
                 ai_bubble = MessageBubble(command_result, is_user=False)
                 self._wire_regenerate(ai_bubble)
-                bubble_container = self._ai_row(ai_bubble, "A2")
+                bubble_container = self._ai_row(ai_bubble)
 
                 container_widget = QWidget()
                 container_widget.setLayout(bubble_container)
@@ -7722,12 +7766,12 @@ class MainWindow(QMainWindow):
                 self.scroll_chat_to_bottom()
             else:
                 # Command was executed but returned nothing
-                # Provide context-aware feedback with A2 personality
+                # Provide context-aware feedback with the assistant personality
                 text_lower = text.lower()
                 if 'open' in text_lower:
-                    ack_message = "...Opening."
+                    ack_message = "Opening."
                 elif 'close' in text_lower:
-                    ack_message = "...Closing."
+                    ack_message = "Closing."
                 elif 'volume' in text_lower or 'brightness' in text_lower:
                     ack_message = "Adjusted."
                 elif 'screenshot' in text_lower:
@@ -7745,7 +7789,7 @@ class MainWindow(QMainWindow):
 
                 ai_bubble = MessageBubble(ack_message, is_user=False)
                 self._wire_regenerate(ai_bubble)
-                bubble_container = self._ai_row(ai_bubble, "A2")
+                bubble_container = self._ai_row(ai_bubble)
 
                 container_widget = QWidget()
                 container_widget.setLayout(bubble_container)
@@ -7876,7 +7920,7 @@ class MainWindow(QMainWindow):
             print(f"{self.assistant.name}: Unpinned message.")
             return
         content = getattr(bubble, '_raw_text', None) or bubble.msg_text.toPlainText()
-        speaker = "You" if bubble.is_user else "A2"
+        speaker = "You" if bubble.is_user else AI_NAME
         pin = self.assistant.pin_message(
             content=content,
             speaker=speaker,
@@ -7944,7 +7988,7 @@ class MainWindow(QMainWindow):
                 f.write(error_msg + "\n")
             ai_bubble = MessageBubble("[AI Error] " + str(e), is_user=False)
             self._wire_regenerate(ai_bubble)
-        bubble_container = self._ai_row(ai_bubble, "A2")
+        bubble_container = self._ai_row(ai_bubble)
         container_widget = QWidget()
         container_widget.setLayout(bubble_container)
         self.chat_layout.addWidget(container_widget)
@@ -7967,7 +8011,7 @@ class MainWindow(QMainWindow):
             if not self.streaming_bubble:
                 self.streaming_bubble = MessageBubble("", is_user=False)
                 self._wire_regenerate_versioned(self.streaming_bubble)
-                bubble_container = self._ai_row(self.streaming_bubble, "A2")
+                bubble_container = self._ai_row(self.streaming_bubble)
 
                 container_widget = QWidget()
                 container_widget.setLayout(bubble_container)
@@ -7986,7 +8030,7 @@ class MainWindow(QMainWindow):
             # Show error in chat
             ai_bubble = MessageBubble("[AI Error] " + str(e), is_user=False)
             self._wire_regenerate(ai_bubble)
-            bubble_container = self._ai_row(ai_bubble, "A2")
+            bubble_container = self._ai_row(ai_bubble)
             container_widget = QWidget()
             container_widget.setLayout(bubble_container)
             self.chat_layout.addWidget(container_widget)
@@ -8022,7 +8066,7 @@ class MainWindow(QMainWindow):
                 f.write(error_msg + "\n")
             ai_bubble = MessageBubble("[AI Error] " + str(e), is_user=False)
             self._wire_regenerate(ai_bubble)
-            bubble_container = self._ai_row(ai_bubble, "A2")
+            bubble_container = self._ai_row(ai_bubble)
             container_widget = QWidget()
             container_widget.setLayout(bubble_container)
             self.chat_layout.addWidget(container_widget)
@@ -8040,7 +8084,21 @@ class MainWindow(QMainWindow):
 
     # ==================== CHAT ROW / SIDEBAR INDEX ====================
 
-    def _ai_row(self, widget, name="A2"):
+    def refresh_ai_name(self):
+        """Update the labels that show the assistant's name after it is renamed."""
+        holders = [self] + list(self.findChildren(PinnedMessagesView))
+        for h in holders:
+            for attr in ("ai_name_label", "ai_title_label"):
+                lab = getattr(h, attr, None)
+                if isinstance(lab, QLabel):
+                    lab.setText(AI_NAME)
+        try:
+            self.input_box.setPlaceholderText(f"Message {AI_NAME}…  (type 'Help' for commands)")
+        except Exception:
+            pass
+
+    def _ai_row(self, widget, name=None):
+        name = name or AI_NAME
         """Avatar + name above the bubble, the way Character.AI lays out a reply."""
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
@@ -8249,7 +8307,7 @@ class MainWindow(QMainWindow):
     def _status_info(self):
         green, amber, red = "#5FB878", "#E0B15A", "#E5604F"
         if self.active_operation == "chat":
-            return amber, "Thinking…", "A2 is working on a reply"
+            return amber, "Thinking…", f"{AI_NAME} is working on a reply"
         if self.active_operation == "image":
             return amber, "Drawing…", "Generating an image"
         a = self.assistant
@@ -8433,10 +8491,10 @@ class MainWindow(QMainWindow):
                         bubble_container.addWidget(bubble)
                     else:  # AI message
                         bubble = MessageBubble(content, is_user=False)
-                        bubble_container = self._ai_row(bubble, "A2")
+                        bubble_container = self._ai_row(bubble)
 
                     if self.assistant:
-                        speaker = "You" if role == "user" else "A2"
+                        speaker = "You" if role == "user" else AI_NAME
                         pin_id = self.assistant.find_pin_id(self.current_chat_id, content, speaker)
                         if pin_id:
                             bubble.set_pinned(pin_id)
@@ -8687,7 +8745,7 @@ class MainWindow(QMainWindow):
         if self._ci_busy():
             return False
         recent = "\n".join(
-            f"{'User' if m.get('role') == 'user' else 'A2'}: {(m.get('content') or '')[:200]}"
+            f"{'User' if m.get('role') == 'user' else AI_NAME}: {(m.get('content') or '')[:200]}"
             for m in (self.current_chat_messages or [])[-6:])
         now = datetime.now()
         part = ("late night" if now.hour < 5 else "morning" if now.hour < 12 else "afternoon" if now.hour < 17
@@ -8701,7 +8759,7 @@ class MainWindow(QMainWindow):
     def _deliver_checkin(self, text, force=False):
         self._checkin_reschedule()
         if self.active_operation or (self.thread and self.thread.isRunning()):
-            return  # you started talking while she was writing - drop it
+            return  # you started talking while it was writing - drop it
         if not self.current_chat_id:
             self.current_chat_id = datetime.now().strftime("%Y%m%d_%H%M%S")
             self.current_chat_messages = []
@@ -8725,7 +8783,7 @@ class MainWindow(QMainWindow):
         bubble = MessageBubble(text, is_user=False)
         bubble._msg_index = len(self.current_chat_messages) - 1
         container = QWidget()
-        container.setLayout(self._ai_row(bubble, "A2"))
+        container.setLayout(self._ai_row(bubble))
         self.chat_layout.addWidget(container)
         self.scroll_chat_to_bottom()
         cfg = load_checkin_cfg()
@@ -8733,7 +8791,7 @@ class MainWindow(QMainWindow):
             cfg["unanswered"] += 1
             save_checkin_cfg(cfg)
         if cfg["notify"]:
-            self.notify_if_unfocused("A2", text)
+            self.notify_if_unfocused(AI_NAME, text)
         self._speak_reply(text)
 
     def _speak_reply(self, text):
@@ -8832,7 +8890,7 @@ class MainWindow(QMainWindow):
         self.current_chat_messages.append({"role": "ai", "content": message})
         self.save_current_chat()
         bubble = MessageBubble(message, is_user=False)
-        bubble_container = self._ai_row(bubble, "A2")
+        bubble_container = self._ai_row(bubble)
         container_widget = QWidget()
         container_widget.setLayout(bubble_container)
         self.chat_layout.addWidget(container_widget)

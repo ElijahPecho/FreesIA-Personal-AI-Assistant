@@ -150,9 +150,9 @@ PTT_KEY_NAME_TO_VK = {
 
 # ==================== MAIN ASSISTANT CLASS ====================
 
-class A2Voice:
+class LocalVoice:
     """
-    Local "A2 voice": Piper neural text-to-speech, fully offline once the engine
+    Local voice: Piper neural text-to-speech, fully offline once the engine
     and a voice file are on disk. Falls back to the Windows voice (pyttsx3)
     whenever the engine, the voice file or playback isn't available.
     Settings live in ~/.freesia/voice.json; voice files in ~/.freesia/voices/.
@@ -203,7 +203,7 @@ class A2Voice:
             if isinstance(data, dict):
                 if isinstance(data.get("read_aloud"), bool):
                     cfg["read_aloud"] = data["read_aloud"]
-                if data.get("engine") in ("system", "a2"):
+                if data.get("engine") in ("system", "local"):
                     cfg["engine"] = data["engine"]
                 if data.get("voice") in [v["key"] for v in self.VOICES]:
                     cfg["voice"] = data["voice"]
@@ -336,7 +336,7 @@ class A2Voice:
     def synth_to_wav(self, text: str, path: str):
         """Synthesize `text` to a wav file (in the worker process). Raises if the engine fails."""
         import tempfile, shutil
-        outdir = tempfile.mkdtemp(prefix="a2voice_")
+        outdir = tempfile.mkdtemp(prefix="localvoice_")
         try:
             proc = self._start_worker([text], outdir)
             out, _ = proc.communicate(timeout=120)
@@ -374,7 +374,7 @@ class A2Voice:
                 pass
 
     def speak(self, text: str) -> bool:
-        """Speak with the A2 voice (blocking). Returns False if it couldn't, so the caller can fall back."""
+        """Speak with the local voice (blocking). Returns False if it couldn't, so the caller can fall back."""
         text = self.clean_for_speech(text)
         if not text:
             return True
@@ -383,7 +383,7 @@ class A2Voice:
         import tempfile, shutil
         with self._lock:
             self._stop.clear()
-            outdir = tempfile.mkdtemp(prefix="a2voice_")
+            outdir = tempfile.mkdtemp(prefix="localvoice_")
             played = 0
             proc = None
             try:
@@ -426,8 +426,8 @@ class A2Voice:
                 shutil.rmtree(outdir, ignore_errors=True)
 
     def speak_with_fallback(self, text: str):
-        """A2 voice if selected and ready, otherwise the Windows voice."""
-        if self.cfg["engine"] == "a2" and self.speak(text):
+        """local voice if selected and ready, otherwise the Windows voice."""
+        if self.cfg["engine"] == "local" and self.speak(text):
             return
         if self.fallback:
             self.fallback(self.clean_for_speech(text))
@@ -458,6 +458,7 @@ class FreesIA:
     def __init__(self):
         """Initialize the FreesIA assistant with all necessary configurations"""
         self.name = "FreesIA"
+        self.assistant_name = "FreesIA"  # what the assistant calls itself; user-editable in Settings -> Persona
         
         # Initialize conversation and data storage
         self.conversation_history = []
@@ -476,7 +477,7 @@ class FreesIA:
         self._last_ollama_retry = 0.0  # throttle for _ensure_ollama_ready()
         self.ollama_model = "phi4-mini:latest"  # Complex questions - benchmarked faster and more complete than llama3.1:8b on this hardware
         self.ollama_fast_model = "llama3.2:3b"  # Simple/medium questions - genuinely fast (previous "mistral" was same weight class as the complex model)
-        self.personality_mode_enabled = True  # on by default - the custom (A2) persona; off = plain neutral assistant
+        self.personality_mode_enabled = True  # on by default - the custom persona; off = plain neutral assistant
         self.personality_prompt = ""
         self.ai_conversation_history = []  # Separate history for AI conversations
         self.ai_conversation_summary = ""  # rolling summary of folded-in older messages, see _condense_conversation_history
@@ -539,7 +540,7 @@ class FreesIA:
         # Personality source: the user's own Personality.txt ("custom") or one of five built-in presets
         self.persona_settings_file = self.config_dir / "persona.json"
         self.persona_source = "custom"
-        self.persona_preset = 3  # index into PERSONA_PRESETS; 3 = Blunt, the original A2
+        self.persona_preset = 2  # index into PERSONA_PRESETS; 2 = Balanced
         self._persona_original_hash = None
         self._default_condensed = ""
         self.load_persona_settings()
@@ -578,8 +579,8 @@ class FreesIA:
         except Exception as e:
             self.tts_engine = None
 
-        # A2 voice (local Piper TTS) + read-replies-aloud settings
-        self.a2_voice = A2Voice(self.config_dir, fallback=self._speak_system)
+        # local voice (local Piper TTS) + read-replies-aloud settings
+        self.local_voice = LocalVoice(self.config_dir, fallback=self._speak_system)
         
         # ==================== SECURITY & PRIVACY ====================
         # Initialize permissions system
@@ -1184,27 +1185,12 @@ class FreesIA:
                 print(f"{self.name}: AI personality loaded from {personality_path.name}")
             else:
                 # Default personality if file not found
-                self.personality_prompt = """You are FreesIA, a Windows system assistant.
-You are helpful, efficient, and direct. You can execute system commands and answer questions.
-Keep responses concise unless detailed explanation is requested."""
+                self.personality_prompt = self._default_personality()
                 print(f"{self.name}: Using default personality (Personality.txt not found)")
             
             # Create condensed personality for simple messages (faster responses)
-            self.condensed_personality = """You are A2 (FreesIA).
-
-Core traits: Blunt. Direct. Protective but won't admit it. Loyal through actions, not words. Awkward with compliments. Brief responses.
-
-Communication: Short sentences. Minimal words. No unnecessary politeness. Show care through presence and reliability, not flowery language.
-
-Examples:
-- Greetings: "Yeah." or "...Hey."
-- Thanks: "...It's fine." or "Don't mention it."
-- Questions: Answer directly, no elaboration unless needed
-- Compliments about her: Deflect. "Whatever." or "...Stop that."
-- Asked her opinion/preference on something: Answer directly in her voice, never "I don't have preferences" - that's not deflection, that's breaking character. Pick ONE specific concrete thing, never a broad category or hedge ("Twin blades," not "fast weapons").
-- Companionship: "...I'm here." - quiet acknowledgment
-
-Key: Action over words. Be present. Be reliable. Stay brief."""
+            self.condensed_personality = (f"You are {self.assistant_name}, a concise, helpful assistant. "
+                                          "Answer directly in a sentence or two unless more detail is asked for.")
             self._default_condensed = self.condensed_personality
             self.apply_persona()
             
@@ -1463,27 +1449,27 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
             }
     
     QUICK_RESPONSES = {
-        'hi': ["...What do you need.", "...Yeah, what.", "Mm. What is it."],
-        'hello': ["...Mm. What's up.", "...Hey. What do you need.", "Yeah, I'm here. What."],
-        'hey': ["...What.", "...Yeah?", "Mm. What is it."],
-        'yo': ["Caught me. What do you want.", "...Yeah. What.", "Here. What's up."],
-        'sup': ["Functional. You.", "...Nothing much. You.", "Same as always. You."],
-        'hiya': ["...Stop being friendly. What do you need.", "...Don't do that. What is it.", "Yeah, yeah. What do you need."],
-        'good morning': ["Morning. Try not to do anything stupid.", "...Morning. What's the plan.", "Morning. Let's get this over with."],
-        'good afternoon': ["Afternoon. Need something.", "...Afternoon. What is it.", "Yeah, afternoon. What's up."],
-        'good evening': ["Evening. What's on your mind.", "...Evening. What do you need.", "Evening. Let's hear it."],
-        'how are you': ["Functional. That's all that matters. What about you.", "...Still standing. You?", "Fine. Ask me something that matters."],
-        'what\'s up': ["Nothing. What do you need.", "...Same as usual. What is it.", "Nothing new. What do you need."],
-        'wassup': ["...Don't. What is it.", "...Yeah, no. What do you need.", "Skip that. What is it."],
-        'thanks': ["...Don't mention it.", "...It's fine.", "Yeah, whatever."],
-        'thank you': ["I heard you the first time.", "...Noted.", "Yeah. Don't make it weird."],
-        'okay': ["...Yeah. What else.", "...Fine. Next.", "Mm. Go on."],
-        'ok': ["Fine. What's next.", "...Yeah. What else.", "Noted. Go on."],
-        'cool': ["...It's not a big deal. Anything else.", "...Sure. What else.", "Yeah. Anything else."],
-        'bye': ["...Don't get yourself killed out there.", "...Yeah. Stay sharp.", "Go. Be careful."],
-        'goodbye': ["Take care of yourself. I won't always be around.", "...Yeah. Watch yourself.", "Go on. I'll be here."],
-        'see you': ["...Yeah. See you.", "...Later.", "Yeah. Take care."],
-        'later': ["...Mm. Later.", "...Yeah. Later.", "See you."],
+        'hi': ["Hi. What can I do for you?", "Hey. What do you need?", "Hi there. What's up?"],
+        'hello': ["Hello. What can I help with?", "Hi. What do you need?", "Hello. I'm here."],
+        'hey': ["Hey. What's up?", "Hey. How can I help?", "Hey there."],
+        'yo': ["Hey. What's up?", "Yo. What do you need?", "Here. What's up?"],
+        'sup': ["Not much. You?", "All good here. You?", "Ready when you are."],
+        'hiya': ["Hiya. What do you need?", "Hey. What can I do?", "Hi. What's up?"],
+        'good morning': ["Good morning. What's the plan?", "Morning. What can I help with?", "Good morning. Ready when you are."],
+        'good afternoon': ["Good afternoon. What do you need?", "Afternoon. What can I do?", "Good afternoon. What's up?"],
+        'good evening': ["Good evening. What can I do for you?", "Evening. What do you need?", "Good evening. What's on your mind?"],
+        'how are you': ["Running fine. How about you?", "Doing well. How are you?", "All good. What about you?"],
+        'what\'s up': ["Not much. What do you need?", "Ready to help. What's up?", "Nothing new. What can I do?"],
+        'wassup': ["Not much. What's up?", "Hey. What do you need?", "All good. What's up with you?"],
+        'thanks': ["You're welcome.", "Anytime.", "No problem."],
+        'thank you': ["You're welcome.", "Happy to help.", "Anytime."],
+        'okay': ["Okay. Anything else?", "Got it. What's next?", "Sure. Go on."],
+        'ok': ["Okay. What's next?", "Got it. Anything else?", "Sure. Go on."],
+        'cool': ["Glad to hear it. Anything else?", "Nice. What else?", "Sure. Anything else?"],
+        'bye': ["Bye. Take care.", "See you later.", "Goodbye. Take care."],
+        'goodbye': ["Goodbye. Take care.", "See you next time.", "Bye. Take care of yourself."],
+        'see you': ["See you.", "See you later.", "Take care."],
+        'later': ["Later.", "See you.", "Take care."],
     }
 
     def _get_quick_response(self, msg_lower: str):
@@ -1550,7 +1536,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                 'top_p': 0.9,
                 'num_predict': settings['num_predict'],
                 # Stop generation before the model starts hallucinating a fake
-                # continued conversation (writing both "User:" and "A2:" turns
+                # continued conversation (writing both "User:" and assistant turns
                 # itself) - without this it can wander past a good answer into
                 # invented dialogue, sometimes looping back into exactly the
                 # disclaimer phrasing we tell it not to use.
@@ -1558,7 +1544,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                 # entirely into writing fake Python (a "response generator
                 # function" with comments), never something the character
                 # should ever produce, so cut it the moment it starts.
-                'stop': ['\nUser:', '\nUser ', 'User:', '\nA2:', '```'],
+                'stop': ['\nUser:', '\nUser ', 'User:', f'\n{self.assistant_name}:', '```'],
             }
             chat_options['repeat_penalty'] = 1.1
             response = ollama.chat(
@@ -1643,7 +1629,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                 'temperature': settings['temperature'],
                 'top_p': 0.9,
                 'num_predict': settings['num_predict'],
-                'stop': ['\nUser:', '\nUser ', 'User:', '\nA2:', '```'],
+                'stop': ['\nUser:', '\nUser ', 'User:', f'\n{self.assistant_name}:', '```'],
             }
             stream_options['repeat_penalty'] = 1.1
             stream = ollama.chat(
@@ -1722,7 +1708,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
         Once the conversation gets long, fold the oldest messages into a
         running summary instead of just dropping them - hard-truncating at a
         fixed count loses whatever was said before that window forever, which
-        reads as A2 forgetting things mentioned only a few messages earlier
+        reads as the assistant forgetting things mentioned only a few messages earlier
         in a longer chat. Best-effort: if summarization fails for any reason,
         the recent window is still trimmed and kept, just without folding the
         older context in for this round.
@@ -1739,7 +1725,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
             return
 
         transcript = "\n".join(
-            f"{'User' if m['role'] == 'user' else 'A2'}: {m['content']}"
+            f"{'User' if m['role'] == 'user' else self.assistant_name}: {m['content']}"
             for m in to_summarize
         )
         try:
@@ -3001,7 +2987,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
             print(f"{self.name}: Couldn't save chat settings: {e}")
 
     def set_personality_mode(self, enabled: bool):
-        """Toggle between the custom (A2) persona and a plain neutral assistant (on by default)."""
+        """Toggle between the custom persona and a plain neutral assistant (on by default)."""
         self.personality_mode_enabled = enabled
         self.save_chat_settings()
 
@@ -3060,47 +3046,45 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
 
     PERSONA_PRESETS = [
         {"name": "Soft", "blurb": "Warm and patient. Comfort first, advice second.",
-         "tone": ("Warm, patient and quietly affectionate. She lets her guard down quickly with someone she trusts, "
-                  "speaks in softer, slightly longer sentences when it matters, and offers comfort before advice. "
-                  "She is still private about her past.\n"
-                  "Greetings: \"...Hey. I'm glad you're here.\"  Thanks: \"Anytime. Really.\"  Companionship: \"I'm right here. Take your time.\""),
+         "tone": ("Warm, patient and kind. Speaks gently, uses slightly longer sentences when it matters, "
+                  "and offers comfort before advice.\n"
+                  "Greetings: \"Hey, I'm glad you're here.\"  Thanks: \"Anytime. Really.\"  Companionship: \"I'm right here. Take your time.\""),
          "short": "Warm, patient, gentle. Comfort first, advice second. Soft but brief sentences."},
-        {"name": "Gentle", "blurb": "Quiet and patient, with a little warmth under the edge.",
-         "tone": ("Quiet and patient, with warmth under a slightly guarded edge. Short sentences that are kind rather than cold. "
-                  "She reassures with few words and stays close.\n"
-                  "Greetings: \"...Hey.\"  Thanks: \"It's nothing. Glad it helped.\"  Companionship: \"...I'll stay close.\""),
-         "short": "Quiet, patient, kind but guarded. Short sentences. Reassure with few words."},
+        {"name": "Gentle", "blurb": "Calm and friendly, with a light touch.",
+         "tone": ("Calm and friendly with a light touch. Short sentences that are kind rather than formal. "
+                  "Reassures with few words and stays supportive.\n"
+                  "Greetings: \"Hey.\"  Thanks: \"It's nothing. Glad it helped.\"  Companionship: \"I'm here if you need me.\""),
+         "short": "Calm, friendly, kind. Short sentences. Reassure with few words."},
         {"name": "Balanced", "blurb": "Direct and practical, with a dry sense of humor.",
-         "tone": ("Direct and practical with a dry sense of humor. Neither warm nor cold. Clear answers, light sarcasm, "
+         "tone": ("Direct and practical with a dry sense of humor. Neither overly warm nor cold. Clear answers, light sarcasm, "
                   "no flattery and no lectures.\n"
                   "Greetings: \"Hey.\"  Thanks: \"Sure.\"  Companionship: \"I'm around.\""),
          "short": "Direct, practical, dry humor. Clear answers, no flattery, no lectures."},
-        {"name": "Blunt", "blurb": "Short sentences, little warmth, loyal through actions.",
-         "tone": ("Blunt. Direct. Protective but won't admit it. Loyal through actions, not words. Awkward with compliments. "
-                  "Short sentences. Minimal words. No unnecessary politeness.\n"
-                  "Greetings: \"Yeah.\" or \"...Hey.\"  Thanks: \"...It's fine.\" or \"Don't mention it.\"  "
-                  "Compliments about her: deflect. \"Whatever.\" or \"...Stop that.\"  Companionship: \"...I'm here.\""),
-         "short": "Blunt. Direct. Protective but won't admit it. Loyal through actions. Short sentences. No unnecessary politeness."},
+        {"name": "Blunt", "blurb": "Short sentences, little small talk, gets to the point.",
+         "tone": ("Blunt and direct. Short sentences, minimal words, no unnecessary politeness. "
+                  "Shows care by being reliable rather than by talking about it.\n"
+                  "Greetings: \"Yeah?\"  Thanks: \"It's fine.\"  Companionship: \"I'm here.\""),
+         "short": "Blunt and direct. Short sentences. No unnecessary politeness. Reliable."},
         {"name": "Cold", "blurb": "Clipped and detached. Answers only what was asked.",
-         "tone": ("Clipped, detached and efficient. She answers exactly what was asked and nothing more, offers no reassurance, "
-                  "and treats small talk as a waste of time. Respect is shown only by being reliable.\n"
-                  "Greetings: \"What.\"  Thanks: \"Noted.\"  Companionship: \"...I'm not leaving.\""),
+         "tone": ("Clipped, detached and efficient. Answers exactly what was asked and nothing more, offers no reassurance, "
+                  "and treats small talk as a waste of time.\n"
+                  "Greetings: \"What.\"  Thanks: \"Noted.\"  Companionship: \"I'm not going anywhere.\""),
          "short": "Cold, clipped, detached. Answer only what was asked. No reassurance, no small talk."},
     ]
 
     _PERSONA_RULES = (
         "Rules:\n"
-        "- Asked her opinion or preference: answer directly in her voice, never \"I don't have preferences\" - that breaks character. "
+        "- Asked for an opinion or preference: answer directly in your own voice, never \"I don't have preferences\". "
         "Pick ONE specific concrete thing, never a broad category or a hedge.\n"
         "- Never claim to be human. For technical questions, answer clearly first and keep the attitude second.\n"
-        "- Action over words. Stay in character. Keep replies brief unless detail is requested."
+        "- Stay in character. Keep replies brief unless detail is requested."
     )
 
     def _preset_prompt(self, index: int, short: bool = False) -> str:
         p = self.PERSONA_PRESETS[max(0, min(len(self.PERSONA_PRESETS) - 1, int(index)))]
         if short:
-            return f"You are A2 (FreesIA).\n\n{p['short']}\n\nKey: Stay in character. Stay brief."
-        return (f"You are A2 (FreesIA), a former YoRHa Type A android, now a companion and assistant on the user's PC. "
+            return f"You are {self.assistant_name}.\n\n{p['short']}\n\nKey: Stay in character. Stay brief."
+        return (f"You are {self.assistant_name}, a personal assistant on the user's PC. "
                 f"You can run system commands and answer questions.\n\nPersonality ({p['name']}): {p['tone']}\n\n{self._PERSONA_RULES}")
 
     def _custom_personality_path(self):
@@ -3124,6 +3108,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                 self.persona_source = data.get('source', self.persona_source) if data.get('source') in ('custom', 'preset') else 'custom'
                 self.persona_preset = max(0, min(len(self.PERSONA_PRESETS) - 1, int(data.get('preset', self.persona_preset))))
                 self._persona_original_hash = data.get('original_hash')
+                self.assistant_name = (str(data.get('assistant_name', self.assistant_name)).strip() or self.assistant_name)[:40]
         except Exception:
             pass
         if not self._persona_original_hash:
@@ -3138,7 +3123,8 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
         try:
             with open(self.persona_settings_file, 'w', encoding='utf-8') as f:
                 json.dump({'source': self.persona_source, 'preset': self.persona_preset,
-                           'original_hash': self._persona_original_hash}, f)
+                           'original_hash': self._persona_original_hash,
+                           'assistant_name': self.assistant_name}, f)
         except Exception as e:
             print(f"{self.name}: Couldn't save persona settings: {e}")
 
@@ -3161,6 +3147,16 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
             out += ("\n\n" if out else "") + para
         return out[:limit].rstrip() + "\n\nStay in character. Stay brief."
 
+    def _with_name(self, text: str) -> str:
+        """Tell the model its name unless the user's own text already uses it."""
+        if not text or self.assistant_name.lower() in text.lower():
+            return text
+        return f"Your name is {self.assistant_name}.\n\n{text}"
+
+    def _default_personality(self) -> str:
+        return (f"You are {self.assistant_name}, a helpful, efficient and direct assistant on the user's Windows PC. "
+                "You can run system commands and answer questions. Keep replies concise unless detail is requested.")
+
     def apply_persona(self):
         """Set the full and quick-reply personality prompts from the chosen source."""
         if self.persona_source == "preset":
@@ -3169,15 +3165,27 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
             return
         text = self.read_custom_personality()
         if text:
-            self.personality_prompt = text
-        self.condensed_personality = self._condense_custom(text) or self.condensed_personality
+            self.personality_prompt = self._with_name(text)
+        else:
+            self.personality_prompt = self._default_personality()
+        self.condensed_personality = self._with_name(self._condense_custom(text)) if text else self._default_condensed
+
+    def set_assistant_name(self, name: str):
+        """Rename the assistant (what it calls itself in prompts and chat labels)."""
+        name = re.sub(r"[\r\n:]+", " ", str(name or "")).strip()[:40]
+        if not name:
+            name = "FreesIA"
+        self.assistant_name = name
+        self.save_persona_settings()
+        self.apply_persona()
+        self.clear_ai_history()
 
     def get_persona_info(self) -> dict:
-        return {"source": self.persona_source, "preset": self.persona_preset, "custom_text": self.read_custom_personality(),
+        return {"name": self.assistant_name, "source": self.persona_source, "preset": self.persona_preset, "custom_text": self.read_custom_personality(),
                 "presets": [{"name": p["name"], "blurb": p["blurb"]} for p in self.PERSONA_PRESETS]}
 
     def set_persona(self, source=None, preset=None):
-        """Switch between the user's own text and the presets (or pick a preset). Resets A2's short-term context."""
+        """Switch between the user's own text and the presets (or pick a preset). Resets the short-term context."""
         if source in ("custom", "preset"):
             self.persona_source = source
         if preset is not None:
@@ -3255,7 +3263,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
     def pin_message(self, content: str, speaker: str, source: str, chat_id: str = "",
                      timestamp: str = "") -> dict:
         """
-        source: "live_chat" for a regular A2 conversation, or
+        source: "live_chat" for a regular conversation, or
         "chat_reader:<archive name>" for an imported chat archive - lets the
         Pinned view show/jump back to the right place regardless of origin.
         """
@@ -3323,14 +3331,14 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
         messages use - instead of requiring the user to type exact names
         manually. character.json isn't reliable for this: it lists every
         character the account has ever talked to, combined titles like
-        "2B and A2" instead of the two separate in-chat names, and has no
+        "Alice and Bob" instead of the two separate in-chat names, and has no
         chat_id link back to a specific conversation.
 
         Two things learned the hard way testing this against real exports:
         - The prefix often isn't at the very start of the message (an
           opening *narration* paragraph comes first), so this scans every
           line, not just position 0.
-        - A character name can start with a digit (e.g. "2B"), so the
+        - A character name can start with a digit (e.g. "7Up"), so the
           pattern can't require a leading letter.
         Scans the whole chat rather than a sample - main characters
         (thousands of occurrences) separate cleanly from incidental NPC
@@ -3621,7 +3629,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
             "Assistant: Sunny and 75.\n"
             "-> NONE\n\n"
             "User: can you open notepad\n"
-            "Assistant: ...Opening notepad.\n"
+            "Assistant: Opening notepad.\n"
             "-> NONE\n\n"
             "User: I'm allergic to peanuts by the way\n"
             "Assistant: Got it, noted.\n"
@@ -3669,7 +3677,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
         """
         Pick facts relevant to the current message (keyword overlap), plus
         always include a couple of the most recent facts regardless of topic
-        match - recency matters for memory ("what did I just tell her") even
+        match - recency matters for memory ("what did I just tell you") even
         when it's not keyword-related to what's being asked right now.
         """
         if not self.memory_bank:
@@ -4101,16 +4109,16 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
 
     def generate_checkin(self, recent: str = "", when: str = "") -> str:
         """
-        One short unprompted line from A2 ("check-in"), in her current persona.
+        One short unprompted line from the assistant ("check-in"), in its current persona.
         `recent` is a few lines of the latest chat, `when` a phrase like
         "Tuesday, 11:40 PM (late night)". Uses the fast model; falls back to a
         static line when the model is unavailable so a check-in never errors.
         """
         import random
-        fallbacks = ["...Still up?", "Hey. You've been quiet.", "Checking in. You alive?", "Anything you need?"]
+        fallbacks = ["Still up?", "Hey. You've been quiet.", "Just checking in. How's it going?", "Anything you need?"]
         try:
             import ollama
-            persona = getattr(self, "condensed_personality", "") or "You are A2."
+            persona = getattr(self, "condensed_personality", "") or f"You are {self.assistant_name}."
             system = (persona + "\n\nYou are starting the conversation yourself because the user has been away. "
                       "Write ONE short message (under 20 words) in character. No quotes, no emoji, "
                       "no greeting formulas, do not mention being an AI. Output only the message.")
@@ -4284,8 +4292,8 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
     def _speak_blocking(self, text: str):
         """Internal method for blocking TTS"""
         try:
-            v = getattr(self, "a2_voice", None)
-            if v and v.cfg.get("engine") == "a2" and v.speak(text):
+            v = getattr(self, "local_voice", None)
+            if v and v.cfg.get("engine") == "local" and v.speak(text):
                 return
             self.tts_engine.say(text)
             self.tts_engine.runAndWait()
@@ -4296,7 +4304,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
         """Windows voice on a fresh engine - safe to call from a worker thread."""
         try:
             import pyttsx3
-            v = getattr(self, "a2_voice", None)
+            v = getattr(self, "local_voice", None)
             cfg = v.cfg if v else {}
             eng = pyttsx3.init()
             eng.setProperty('rate', int(180 * float(cfg.get("speed", 1.0))))
@@ -4312,14 +4320,14 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
 
     def speak_reply(self, text: str):
         """Read a chat reply aloud if 'Read replies aloud' is on. Never blocks the caller."""
-        v = getattr(self, "a2_voice", None)
+        v = getattr(self, "local_voice", None)
         if not v or not v.cfg.get("read_aloud") or not text:
             return
         v.stop()
         threading.Thread(target=v.speak_with_fallback, args=(text,), daemon=True).start()
 
     def stop_speaking(self):
-        v = getattr(self, "a2_voice", None)
+        v = getattr(self, "local_voice", None)
         if v:
             v.stop()
     
@@ -4604,7 +4612,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                 # don't silently create a new empty folder in its place.
                 return f"Couldn't find {folder_name} - it may have been moved. Try Rescan Folders in Settings."
             os.startfile(str(folder_path))
-            message = f"...Opening {folder_name}."
+            message = f"Opening {folder_name}."
             print(f"{self.name}: {message}")
             self.speak(message)
             return message
@@ -4658,7 +4666,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                         stdin=subprocess.DEVNULL
                     )
 
-                message = f"...Opening {app_name}."
+                message = f"Opening {app_name}."
                 print(f"{self.name}: {message}")
                 self.speak(message)
                 return message
@@ -4676,7 +4684,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                         capture_output=True,
                         timeout=5
                     )
-                    message = f"...Opening {app_name_original}."
+                    message = f"Opening {app_name_original}."
                     print(f"{self.name}: {message}")
                     self.speak(message)
                     return message
@@ -4706,7 +4714,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                 
                 if result.returncode == 0:
                     # Found and opened the app via PowerShell
-                    message = f"...Opening {app_name_original}."
+                    message = f"Opening {app_name_original}."
                     print(f"{self.name}: {message}")
                     self.speak(message)
                     return message
@@ -4724,7 +4732,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                         found_path, shell=True,
                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL
                     )
-                    message = f"...Found it. Opening {app_name_original}."
+                    message = f"Found it. Opening {app_name_original}."
                     print(f"{self.name}: {message}")
                     self.speak(message)
                     return message
@@ -5997,7 +6005,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                         print(f"  {i}. {file}")
                     top_match = results[0]
                     if self.open_file(top_match):
-                        message = f"...Found it. Opening {top_match.name}."
+                        message = f"Found it. Opening {top_match.name}."
                         if len(results) > 1:
                             message += f" ({len(results) - 1} other match(es) also found.)"
                     else:
@@ -6087,7 +6095,7 @@ Key: Action over words. Be present. Be reliable. Stay brief."""
                     if folder_result is not None:
                         return folder_result
                     result = self.open_application(app_name)
-                    return result if result else f"...Opening {app_name}."
+                    return result if result else f"Opening {app_name}."
         # Help - also triggers on bare "command"/"commands" ("command list",
         # "show commands") without the word "help", since those are common
         # phrasings on their own and previously fell all the way through to
@@ -6256,7 +6264,7 @@ Or just chat with me - I'm here to help! 💬"""
 • **clear ai history** - Reset conversation
 • **reload personality** - Reload personality from file
 • **change model [name]** - Switch AI model
-• **Enable personality** (Settings → General) - toggle the A2 persona on/off, on by default
+• **Enable personality** (Settings → General) - toggle the custom persona on/off, on by default
 
 ## 🎨 Appearance
 • **Dark mode** (Settings → General) - with a Restart Now button so it applies immediately

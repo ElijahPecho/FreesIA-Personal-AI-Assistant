@@ -20,5 +20,5 @@ PyAudio
 vosk
 
 # Optional
-# piper-tts      # offline "A2 voice" (installable from inside Settings -> Persona -> Voice)
+# piper-tts      # offline local voice (installable from inside Settings -> Persona -> Voice)
 # winsdk         # location awareness

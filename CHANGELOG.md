@@ -14,7 +14,7 @@ A major update over Pre-Alpha. The codebase roughly doubled in size, with a rebu
 - Pinned messages with jump-to-message.
 
 ### Chat
-- Persona system: built-in presets, custom character text, or a plain neutral assistant.
+- Customizable assistant: give it any name, and set its personality with built-in presets, your own character text, or a plain neutral mode.
 - Long-term memory: the assistant can remember facts about the user, which can be reviewed and cleared.
 - Automatic chat titles.
 - Separate Ollama model slots for complex and fast replies, with automatic readiness checks and retry.

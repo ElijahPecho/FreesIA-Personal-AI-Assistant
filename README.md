@@ -1,14 +1,14 @@
 # FreesIA (alpha)
 
-A personal AI desktop assistant for Windows that runs **locally**: chat with a character ("A2"), open apps and files, generate images, and read old chat exports, all without sending your data to a cloud service.
+A personal AI desktop assistant for Windows that runs **locally**: chat with an assistant you can name and give its own personality, open apps and files, generate images, and read old chat exports, all without sending your data to a cloud service.
 
 > **Alpha.** Things work on the author's PC but are not widely tested. Expect rough edges (see below).
 
 ## Features
 - **Local chat** through [Ollama](https://ollama.com), with a modern dark/light UI: avatars, code blocks with copy, typing indicator, dated and pinned history, search, and a `Ctrl+K` command palette.
-- **Persona**: write your own personality text (or drag a `.txt` in), or pick a preset from Soft to Cold.
-- **Check-ins** (optional, off by default): A2 occasionally messages first, with quiet hours and a fullscreen-app guard.
-- **Voice**: Windows voice, or an offline neural "A2 voice" ([Piper](https://github.com/rhasspy/piper)) downloaded from inside the app.
+- **Your own assistant**: give it any name, then write its personality (or drag a `.txt` in), or pick a preset from Soft to Cold.
+- **Check-ins** (optional, off by default): your assistant occasionally messages first, with quiet hours and a fullscreen-app guard.
+- **Voice**: Windows voice, or an offline neural local voice ([Piper](https://github.com/rhasspy/piper)) downloaded from inside the app.
 - **Image generation** through [FastSD CPU](https://github.com/rupeshs/fastsdcpu), with a gallery, starred images and speed options (TAESD / token merging).
 - **Chat Reader**: import a Character.AI export and read it like a chat, with resume, search, timeline and bookmarks.
 - **System helpers**: open apps and folders, file search, shortcuts/macros, PIN lock, permissions and a diagnostics page.
@@ -33,7 +33,7 @@ Your chats, persona text and settings stay on your PC (`ChatHistory/`, `Personal
 
 ## Known rough edges
 - Windows only.
-- Fullscreen detection (for check-ins) and the offline A2 voice have had limited testing.
+- Fullscreen detection (for check-ins) and the offline local voice have had limited testing.
 - Image-speed options depend on the image model you use.
 - Image generation needs an SDXL `.safetensors` checkpoint (ideally a Lightning/Turbo one). Pick it in Settings → General → Image model, or drop it into `fastsdcpu/models/custom`; otherwise it falls back to `stabilityai/sdxl-turbo`.
 - No installer yet; setup is manual.
